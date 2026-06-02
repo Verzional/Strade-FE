@@ -19,14 +19,23 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
+
+
+ useEffect(() => {
     const loadProfile = async () => {
+      console.log('Fetching profile');
+      // Ensure we show loading only when genuinely fetching
+      setIsLoading(true);
+      setError('');
+
       try {
-        // Fetch through the centralized Go Gateway
-        const response = await fetchWithAuth('/api/users/profile');
+        const response = await fetchWithAuth('/api/users/profile', {
+          // This stops the browser from caching the raw HTTP request
+          cache: 'no-store' 
+        });
+        console.log('Response status:', response.status);
         
         if (response.status === 401) {
-          // Token is missing, expired, or invalid
           throw new Error('Unauthorized');
         }
 
@@ -35,13 +44,15 @@ export default function ProfilePage() {
         }
 
         const data = await response.json();
+        console.log('Profile loaded', data);
+
         setUser(data);
+        
       } catch (err: any) {
         console.error(err);
-        // If unauthorized, clear any bad tokens and send to login
         if (err.message === 'Unauthorized') {
           localStorage.removeItem('strade_token');
-          router.push('/login');
+          router.replace('/login');
         } else {
           setError('Could not connect to the server. Please try again later.');
         }

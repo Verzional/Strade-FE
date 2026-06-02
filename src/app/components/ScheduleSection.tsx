@@ -1,5 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { fetchWithAuth } from '../../../lib/api';
+import { useRouter } from 'next/navigation';
 
 // Helper to format the ISO date string into a readable format
 const formatDateTime = (start: string, end: string) => {
@@ -16,34 +18,80 @@ const formatDateTime = (start: string, end: string) => {
 };
 
 export default function ScheduleSection({ userId }: { userId: string | undefined }) {
+  const router = useRouter();
   const [schedules, setSchedules] = useState<any[]>([]);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!userId) return;
+  const [isServiceDown, setIsServiceDown] = useState(false);
+  const [isEmpty, setIsEmpty] = useState(false);
+  const [generalError, setGeneralError] = useState('');
 
-    async function fetchSchedules() {
+  useEffect(() => {
+    const loadSchedules = async () => {
       try {
-        const res = await fetch('http://localhost:8000/schedules');
-        if (!res.ok) throw new Error("Failed to fetch");
+        // Fetching from the Go Gateway
+        const response = await fetchWithAuth('/api/schedules');
         
-        const data = await res.json();
-        const mySchedules = data.filter((s: any) => s.userId1 === userId || s.userId2 === userId);
-        setSchedules(mySchedules);
-      } catch (err) {
-        setError(true);
+        // 1. Handle Token Expiration
+        if (response.status === 401) {
+          localStorage.removeItem('strade_token');
+          router.push('/login');
+          return;
+        }
+
+        // 2. Handle Gateway 503 (Python Container is stopped/crashed)
+        if (response.status === 503) {
+          setIsServiceDown(true);
+          setLoading(false);
+          return;
+        }
+
+        // 3. Handle Python 404 (Database is empty)
+        if (response.status === 404) {
+          setIsEmpty(true);
+          setLoading(false);
+          return;
+        }
+
+        // 4. Handle other unexpected errors
+        if (!response.ok) {
+          throw new Error('Failed to fetch schedules');
+        }
+
+        // 5. Success! Parse the array of schedules
+        const data = await response.json();
+        setSchedules(data);
+
+      } catch (err: any) {
+        setGeneralError('Could not connect to the server. Please try again later.');
       } finally {
         setLoading(false);
       }
-    }
+    };
 
-    fetchSchedules();
-  }, [userId]);
+    loadSchedules();
+  }, [router]);
 
   if (loading) return (
     <div className="mt-8 p-8 flex justify-center border border-gray-100 rounded-xl bg-white shadow-sm">
       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+    </div>
+  );
+
+  if (isServiceDown) return (
+    <div className="mt-8 p-6 bg-red-50 border border-red-200 rounded-xl flex items-center gap-4">
+      <div className="text-4xl mb-3">🔌</div>
+            <h2 className="text-xl text-red-700 font-bold">Schedule Service is Offline</h2>
+            <p className="text-red-500 mt-1">Our engineers are working to restore the connection.</p>
+    </div>
+  );
+
+  if (isEmpty) return (
+    <div className="mt-8 p-8 flex-col items-center flex justify-center border border-gray-100 rounded-xl bg-white shadow-sm">
+                  <div className="text-4xl mb-3">📅</div>
+            <h2 className="text-xl text-gray-700 font-bold">No schedules yet</h2>
+            <p className="text-gray-500 mt-1">You don't have any upcoming meetings or schedules right now.</p>
     </div>
   );
   

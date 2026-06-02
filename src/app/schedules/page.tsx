@@ -1,5 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { fetchWithAuth } from '../../../lib/api';
+import { useRouter } from 'next/navigation';
 
 const formatDateTime = (start: string, end: string) => {
   const startDate = new Date(start);
@@ -10,24 +12,59 @@ const formatDateTime = (start: string, end: string) => {
 };
 
 export default function AllSchedulesPage() {
+  const router = useRouter();
   const [schedules, setSchedules] = useState<any[]>([]);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const [isServiceDown, setIsServiceDown] = useState(false);
+  const [isEmpty, setIsEmpty] = useState(false);
+  const [generalError, setGeneralError] = useState('');
+
   useEffect(() => {
-    async function fetchAll() {
+    const loadSchedules = async () => {
       try {
-        const res = await fetch('http://localhost:8000/schedules');
-        if (!res.ok) throw new Error("Failed to fetch");
-        const data = await res.json();
+        // Fetching from the Go Gateway
+        const response = await fetchWithAuth('/api/schedules');
+        
+        // 1. Handle Token Expiration
+        if (response.status === 401) {
+          localStorage.removeItem('strade_token');
+          router.replace('/login');
+          return;
+        }
+
+        // 2. Handle Gateway 503 (Python Container is stopped/crashed)
+        if (response.status === 503) {
+          setIsServiceDown(true);
+          setLoading(false);
+          return;
+        }
+
+        // 3. Handle Python 404 (Database is empty)
+        if (response.status === 404) {
+          setIsEmpty(true);
+          setLoading(false);
+          return;
+        }
+
+        // 4. Handle other unexpected errors
+        if (!response.ok) {
+          throw new Error('Failed to fetch schedules');
+        }
+
+        // 5. Success! Parse the array of schedules
+        const data = await response.json();
         setSchedules(data);
-      } catch (err) {
-        setError(true);
+
+      } catch (err: any) {
+        setGeneralError('Could not connect to the server. Please try again later.');
       } finally {
         setLoading(false);
       }
-    }
-    fetchAll();
+    };
+
+    loadSchedules();
   }, []);
 
   return (
@@ -42,11 +79,23 @@ export default function AllSchedulesPage() {
           <div className="flex justify-center py-20">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
           </div>
-        ) : error ? (
+        ) : isServiceDown ? (
           <div className="p-6 bg-red-50 border border-red-200 rounded-xl text-center shadow-sm">
             <div className="text-4xl mb-3">🔌</div>
             <h2 className="text-xl text-red-700 font-bold">Schedule Service is Offline</h2>
             <p className="text-red-500 mt-1">Our engineers are working to restore the connection.</p>
+          </div>
+        ) : generalError ? (
+          <div className="p-6 bg-red-50 border border-red-200 rounded-xl text-center shadow-sm">
+            <div className="text-4xl mb-3">🔌</div>
+            <h2 className="text-xl text-red-700 font-bold">Error</h2>
+            <p className="text-red-500 mt-1">{generalError}</p>
+          </div>
+        ) : (isEmpty || schedules.length ==0) ? (
+          <div className="p-6 bg-gray-50 border border-gray-200 rounded-xl text-center shadow-sm">
+            <div className="text-4xl mb-3">📅</div>
+            <h2 className="text-xl text-gray-700 font-bold">No schedules yet</h2>
+            <p className="text-gray-500 mt-1">You don't have any upcoming meetings or schedules right now.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
