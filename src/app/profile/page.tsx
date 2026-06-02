@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchWithAuth } from '../../../lib/api';
+import ScheduleSection from '../components/ScheduleSection';
 
 // This interface matches exactly what your Node.js backend returns
 interface UserProfile {
@@ -151,6 +152,9 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+
+    
+        <ScheduleSection userId={user.id} />
 
       </div>
     </div>
