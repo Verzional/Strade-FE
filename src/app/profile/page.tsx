@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchWithAuth } from '../../../lib/api';
 import ScheduleSection from '../components/ScheduleSection';
+import ReviewSection from '../components/ReviewSection';
 
 // This interface matches exactly what your Node.js backend returns
 interface UserProfile {
@@ -18,6 +19,14 @@ export default function ProfilePage() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // 1. Create a state variable for the token, initially null
+  const [token, setToken] = useState<string | null>(null);
+
+  // 2. Fetch the token inside a useEffect (which only runs on the browser)
+  useEffect(() => {
+    setToken(localStorage.getItem('strade_token'));
+  }, []);
 
 
 
@@ -129,6 +138,7 @@ export default function ProfilePage() {
             <div className="text-center sm:text-left">
               <h1 className="text-3xl font-bold text-gray-900">{user.name}</h1>
               <p className="text-gray-500 font-medium mt-1">{user.email}</p>
+              <p className="text-xs text-gray-400 font-mono mt-2 break-all">{token}</p>
               <div className="mt-3 inline-flex items-center px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold">
                 Verified Account
               </div>
@@ -166,6 +176,7 @@ export default function ProfilePage() {
 
     
         <ScheduleSection userId={user.id} />
+        <ReviewSection userId={user.id} />
 
       </div>
     </div>
