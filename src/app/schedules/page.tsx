@@ -14,48 +14,76 @@ const formatDateTime = (start: string, end: string) => {
 export default function AllSchedulesPage() {
   const router = useRouter();
   const [schedules, setSchedules] = useState<any[]>([]);
+  // NEW: State to hold user profile data mapped by their ID
+  const [userProfiles, setUserProfiles] = useState<Record<string, any>>({});
+  
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
-
   const [isServiceDown, setIsServiceDown] = useState(false);
   const [isEmpty, setIsEmpty] = useState(false);
   const [generalError, setGeneralError] = useState('');
 
   useEffect(() => {
-    const loadSchedules = async () => {
+    const loadSchedulesAndUsers = async () => {
       try {
-        // Fetching from the Go Gateway
+        // 1. Fetch the raw schedules
         const response = await fetchWithAuth('/api/schedules');
         
-        // 1. Handle Token Expiration
         if (response.status === 401) {
           localStorage.removeItem('strade_token');
           router.replace('/login');
           return;
         }
 
-        // 2. Handle Gateway 503 (Python Container is stopped/crashed)
         if (response.status === 503) {
           setIsServiceDown(true);
           setLoading(false);
           return;
         }
 
-        // 3. Handle Python 404 (Database is empty)
         if (response.status === 404) {
           setIsEmpty(true);
           setLoading(false);
           return;
         }
 
-        // 4. Handle other unexpected errors
         if (!response.ok) {
           throw new Error('Failed to fetch schedules');
         }
 
-        // 5. Success! Parse the array of schedules
-        const data = await response.json();
-        setSchedules(data);
+        const scheduleData = await response.json();
+        
+        if (scheduleData.length === 0) {
+          setIsEmpty(true);
+          setLoading(false);
+          return;
+        }
+
+        // 2. Extract all unique user IDs from the schedules
+        const uniqueUserIds = Array.from(
+          new Set(scheduleData.flatMap((s: any) => [s.userId1, s.userId2]))
+        ).filter(Boolean); // Removes null/undefined
+
+        // 3. Fetch all user profiles concurrently from the frontend
+        const profilesMap: Record<string, any> = {};
+        await Promise.all(
+          uniqueUserIds.map(async (uid) => {
+            try {
+              // Calls the new route we built in the User Service!
+              const userRes = await fetchWithAuth(`/api/users/${uid}`);
+              if (userRes.ok) {
+                profilesMap[uid as string] = await userRes.json();
+              }
+            } catch (err) {
+              console.error(`Failed to load profile for ${uid}`, err);
+              // We intentionally don't throw here so the schedule still loads even if one image fails
+            }
+          })
+        );
+
+        // 4. Save everything to state
+        setUserProfiles(profilesMap);
+        setSchedules(scheduleData);
 
       } catch (err: any) {
         setGeneralError('Could not connect to the server. Please try again later.');
@@ -64,8 +92,8 @@ export default function AllSchedulesPage() {
       }
     };
 
-    loadSchedules();
-  }, []);
+    loadSchedulesAndUsers();
+  }, [router]);
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -87,20 +115,25 @@ export default function AllSchedulesPage() {
           </div>
         ) : generalError ? (
           <div className="p-6 bg-red-50 border border-red-200 rounded-xl text-center shadow-sm">
-            <div className="text-4xl mb-3">🔌</div>
+            <div className="text-4xl mb-3">⚠️</div>
             <h2 className="text-xl text-red-700 font-bold">Error</h2>
             <p className="text-red-500 mt-1">{generalError}</p>
           </div>
-        ) : (isEmpty || schedules.length ==0) ? (
+        ) : isEmpty ? (
           <div className="p-6 bg-gray-50 border border-gray-200 rounded-xl text-center shadow-sm">
             <div className="text-4xl mb-3">📅</div>
             <h2 className="text-xl text-gray-700 font-bold">No schedules yet</h2>
-            <p className="text-gray-500 mt-1">You don't have any upcoming meetings or schedules right now.</p>
+            <p className="text-gray-500 mt-1">There are no upcoming meetings or schedules right now.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {schedules.map((s) => {
               const { dateStr, timeStr } = formatDateTime(s.time_start, s.time_end);
+              
+              // NEW: Look up the cached profiles we just fetched!
+              const user1Profile = userProfiles[s.userId1];
+              const user2Profile = userProfiles[s.userId2];
+
               return (
                 <div key={s.id} className="bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-md transition-all p-6 flex flex-col h-full">
                   
@@ -121,21 +154,46 @@ export default function AllSchedulesPage() {
                   <hr className="my-5 border-gray-100" />
 
                   {/* Time & Participants */}
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <svg className="w-4 h-4 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                       <span className="font-medium">{timeStr}</span>
                     </div>
                     
-                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-                      <div className="flex items-center justify-between text-sm mb-1">
+                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-4">
+                      
+                      {/* Participant 1 */}
+                      <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-500 text-xs uppercase tracking-wider font-semibold">Participant 1</span>
-                        <span className="font-bold text-gray-900">{s.username1}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold text-gray-900">{s.username1}</span>
+                          {user1Profile?.image ? (
+                            <img src={user1Profile.image} alt={s.username1} className="w-8 h-8 rounded-full object-cover border border-gray-200 shadow-sm" referrerPolicy="no-referrer" />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center text-blue-700 font-bold text-sm shadow-sm">
+                              {s.username1 ? s.username1.charAt(0).toUpperCase() : '?'}
+                            </div>
+                          )}
+                        </div>
                       </div>
+                      
+                      <div className="h-px bg-gray-200 w-full"></div>
+
+                      {/* Participant 2 */}
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-500 text-xs uppercase tracking-wider font-semibold">Participant 2</span>
-                        <span className="font-bold text-gray-900">{s.username2}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold text-gray-900">{s.username2}</span>
+                          {user2Profile?.image ? (
+                            <img src={user2Profile.image} alt={s.username2} className="w-8 h-8 rounded-full object-cover border border-gray-200 shadow-sm" referrerPolicy="no-referrer" />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-indigo-100 border border-indigo-200 flex items-center justify-center text-indigo-700 font-bold text-sm shadow-sm">
+                              {s.username2 ? s.username2.charAt(0).toUpperCase() : '?'}
+                            </div>
+                          )}
+                        </div>
                       </div>
+
                     </div>
                   </div>
                 </div>

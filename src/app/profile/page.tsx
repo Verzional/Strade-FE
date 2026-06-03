@@ -138,7 +138,7 @@ export default function ProfilePage() {
             <div className="text-center sm:text-left">
               <h1 className="text-3xl font-bold text-gray-900">{user.name}</h1>
               <p className="text-gray-500 font-medium mt-1">{user.email}</p>
-              <p className="text-xs text-gray-400 font-mono mt-2 break-all">{token}</p>
+              {/* <p className="text-xs text-gray-400 font-mono mt-2 break-all">{token}</p> */}
               <div className="mt-3 inline-flex items-center px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold">
                 Verified Account
               </div>

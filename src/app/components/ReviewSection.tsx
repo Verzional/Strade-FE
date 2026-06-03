@@ -2,17 +2,14 @@
 import { useEffect, useState } from 'react';
 import { fetchWithAuth } from '../../../lib/api';
 import { useRouter } from 'next/navigation';
-import { create } from 'domain';
 
 // Helper to format the ISO date string into a readable format
 const formatDateTime = (date: string) => {
   const rawDate = new Date(date);
-  
   const dateStr = rawDate.toLocaleDateString('en-US', { 
     weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' 
   });
-
-  return { dateStr};
+  return { dateStr };
 };
 
 export default function ReviewSection({ userId }: { userId: string | undefined }) {
@@ -27,41 +24,43 @@ export default function ReviewSection({ userId }: { userId: string | undefined }
 
   useEffect(() => {
     const loadReviews = async () => {
+      if (!userId) return;
+
       try {
-        // Fetching from the Go Gateway
-        const response = await fetchWithAuth('/api/reviews');
+        const response = await fetchWithAuth(`/api/reviews/receiver/${userId}`);
         
-        // 1. Handle Token Expiration
         if (response.status === 401) {
           localStorage.removeItem('strade_token');
           router.push('/login');
           return;
         }
 
-        // 2. Handle Gateway 503 (Python Container is stopped/crashed)
         if (response.status === 503) {
           setIsServiceDown(true);
           setLoading(false);
           return;
         }
 
-        // 3. Handle Python 404 (Database is empty)
         if (response.status === 404) {
           setIsEmpty(true);
           setLoading(false);
           return;
         }
 
-        // 4. Handle other unexpected errors
         if (!response.ok) {
-          throw new Error('Failed to fetch schedules');
+          throw new Error('Failed to fetch reviews');
         }
 
-        // 5. Success! Parse the array of schedules
         const data = await response.json();
-        setReviews(data);
+        
+        if (data.length === 0) {
+          setIsEmpty(true);
+        } else {
+          setReviews(data);
+        }
 
       } catch (err: any) {
+        setError(true);
         setGeneralError('Could not connect to the server. Please try again later.');
       } finally {
         setLoading(false);
@@ -69,7 +68,7 @@ export default function ReviewSection({ userId }: { userId: string | undefined }
     };
 
     loadReviews();
-  }, [router]);
+  }, [router, userId]);
 
   if (loading) return (
     <div className="mt-8 p-8 flex justify-center border border-gray-100 rounded-xl bg-white shadow-sm">
@@ -80,16 +79,18 @@ export default function ReviewSection({ userId }: { userId: string | undefined }
   if (isServiceDown) return (
     <div className="mt-8 p-6 bg-red-50 border border-red-200 rounded-xl flex items-center gap-4">
       <div className="text-4xl mb-3">🔌</div>
-            <h2 className="text-xl text-red-700 font-bold">Review Service is Offline</h2>
-            <p className="text-red-500 mt-1">Our engineers are working to restore the connection.</p>
+      <div>
+        <h2 className="text-xl text-red-700 font-bold">Review Service is Offline</h2>
+        <p className="text-red-500 mt-1">Our engineers are working to restore the connection.</p>
+      </div>
     </div>
   );
 
   if (isEmpty) return (
     <div className="mt-8 p-8 flex-col items-center flex justify-center border border-gray-100 rounded-xl bg-white shadow-sm">
-                  <div className="text-4xl mb-3">📅</div>
-            <h2 className="text-xl text-gray-700 font-bold">No Reviews yet</h2>
-            <p className="text-gray-500 mt-1">You don't have any reviews right now.</p>
+      <div className="text-4xl mb-3">⭐</div>
+      <h2 className="text-xl text-gray-700 font-bold">No Reviews yet</h2>
+      <p className="text-gray-500 mt-1">You haven't received any reviews right now.</p>
     </div>
   );
   
@@ -98,55 +99,72 @@ export default function ReviewSection({ userId }: { userId: string | undefined }
       <div className="text-red-500 text-3xl">⚠️</div>
       <div>
         <h2 className="text-lg text-red-700 font-bold">Review Service is Unavailable</h2>
-        <p className="text-red-500 text-sm">We couldn't load your reviews. Please try again later.</p>
+        <p className="text-red-500 text-sm">{generalError}</p>
       </div>
     </div>
   );
 
   return (
     <div className="mt-8">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Reviews</h2>
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">Received Reviews</h2>
       
-      {reviews.length === 0 ? (
-        <div className="p-8 bg-white border border-gray-200 rounded-xl text-center text-gray-500 shadow-sm">
-          You have no reviews.
-        </div>
-      ) : (
-        <ul className="space-y-4">
-          {reviews.map((s) => {
-            const createdAt = formatDateTime(s.createdAt);
-            const otherUser = s.receiverId === userId;
+      <ul className="space-y-4">
+        {reviews.map((s) => {
+          const createdAt = formatDateTime(s.createdAt);
+          
+          // Safely check if the image exists nested inside the author object
+          const authorImage = s.author?.image;
 
-            return (
-              <li key={s.id} className="p-5 bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow group">
-                <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-                  <div>
-                    <h3 className="font-bold text-xl text-gray-900 group-hover:text-blue-600 transition-colors">{s.author_name}</h3>
-                    <p className="text-gray-8500 mt-1 text-md">{createdAt.dateStr}</p>
-                    <div>
-                      <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                        {Array.from({ length: 5 }).map((_, index) => (
-                          <svg
-                            key={index}
-                            viewBox="0 0 24 24"
-                            /* If the index is less than the rating, make it Gold. Otherwise, make it Gray */
-                            fill={index < s.rating ? "#FBBF24" : "#E5E7EB"} 
-                            style={{ width: '24px', height: '24px' }}
-                          >
-                            <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
-                          </svg>
-                        ))}
-                      </div>
+          return (
+            <li key={s.id} className="p-5 bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow group">
+              <div className="flex flex-col sm:flex-row items-start gap-5">
+                
+                {/* --- AVATAR SECTION --- */}
+                <div className="flex-shrink-0">
+                  {authorImage ? (
+                    <img 
+                      src={authorImage} 
+                      alt={s.author_name} 
+                      className="w-14 h-14 rounded-full object-cover border border-gray-200 shadow-sm"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="w-14 h-14 rounded-full bg-gray-200 border border-gray-300 shadow-sm flex items-center justify-center text-gray-500 font-bold text-xl">
+                      {s.author_name ? s.author_name.charAt(0).toUpperCase() : '?'}
                     </div>
-                    <p className="text-gray-800 mt-1 text-sm">{s.description}</p>
-                  </div>
+                  )}
                 </div>
+                {/* ---------------------- */}
 
-              </li>
-            );
-          })}
-        </ul>
-      )}
+                <div className="flex-1">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                    <h3 className="font-bold text-lg text-gray-900 group-hover:text-blue-600 transition-colors">
+                      {s.author_name}
+                    </h3>
+                    <p className="text-gray-500 text-sm mt-1 sm:mt-0">{createdAt.dateStr}</p>
+                  </div>
+                  
+                  <div className="mt-2 mb-3">
+                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                      {Array.from({ length: 5 }).map((_, index) => (
+                        <svg
+                          key={index}
+                          viewBox="0 0 24 24"
+                          fill={index < s.rating ? "#FBBF24" : "#E5E7EB"} 
+                          style={{ width: '18px', height: '18px' }}
+                        >
+                          <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                        </svg>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-gray-700 text-md leading-relaxed">{s.description}</p>
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
