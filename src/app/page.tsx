@@ -1,65 +1,55 @@
-import Image from "next/image";
+import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="flex flex-col items-center justify-center flex-1 w-full px-6 py-20 bg-white bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]">
+      <section className="w-full max-w-5xl mx-auto flex flex-col items-center text-center gap-8">
+        
+        {/* Playful Badge */}
+        <div className="inline-block px-4 py-1.5 font-bold border-2 border-black rounded-full bg-[#FFD166] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] -rotate-2">
+          🎉 Welcome to the Skill Economy
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+        {/* Hero Headline */}
+        <h1 className="text-6xl md:text-8xl font-black tracking-tight text-black leading-[1.1]">
+          Trade What You <span className="text-[#EF476F]">Know</span>.<br/>
+          Learn What You <span className="underline decoration-8 decoration-[#118AB2] underline-offset-8">Don't</span>.
+        </h1>
+
+        {/* Subtitle */}
+        <p className="max-w-2xl text-xl font-medium text-gray-700 mt-4 leading-relaxed">
+          Strade is the ultimate marketplace for exchanging abilities. Match with users to teach your expertise, coordinate schedules, and chat to start learning. No money involved—just pure knowledge sharing.
+        </p>
+
+        {/* CTA Buttons Pointing to Real Routes */}
+        <div className="flex flex-col sm:flex-row gap-6 mt-8">
+          <Link
+            href="/skill"
+            className="px-8 py-4 text-lg font-black text-black bg-[#06D6A0] border-4 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all rounded-xl"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            Find a Skill Match
+          </Link>
+          <Link
+            href="/schedules"
+            className="px-8 py-4 text-lg font-black text-black bg-white border-4 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all rounded-xl"
           >
-            Documentation
-          </a>
+            View Schedules
+          </Link>
         </div>
-      </main>
+
+        {/* Example Skill Tags */}
+        <div className="flex flex-wrap justify-center gap-3 mt-16 max-w-3xl">
+          {['🎨 Graphic Design', '💻 Web Development', '🎸 Guitar Lessons', '🗣️ Spanish Tutoring', '🍳 Culinary Arts', '📈 Marketing'].map((skill) => (
+            <span 
+              key={skill} 
+              className="px-4 py-2 text-sm font-bold border-2 border-black rounded-full shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-white hover:bg-[#FFD166] hover:-translate-y-0.5 transition-all cursor-default"
+            >
+              {skill}
+            </span>
+          ))}
+        </div>
+
+      </section>
     </div>
   );
 }
