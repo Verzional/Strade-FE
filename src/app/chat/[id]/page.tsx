@@ -8,13 +8,12 @@ import { useChat } from "../../../hooks/useChat";
 export default function ChatRoomPage() {
   const router = useRouter();
   const params = useParams();
-  const receiverId = params.id as string; // Safely grab the dynamic route ID
+  const receiverId = params.id as string;
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [receiverName, setReceiverName] = useState<string>("Loading...");
   const [isInitializing, setIsInitializing] = useState(true);
 
-  // The hook will only attempt a WS connection once currentUserId is set
   const { messages, sendMessage, isConnected } = useChat(
     currentUserId || undefined,
     receiverId,
@@ -23,18 +22,15 @@ export default function ChatRoomPage() {
   const [inputValue, setInputValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to the newest message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Initial Data Fetch: Get Current User AND Receiver Profile
   useEffect(() => {
     if (!receiverId) return;
 
     const initializeChat = async () => {
       try {
-        // 1. Get Logged In User via your API wrapper
         const profileRes = await fetchWithAuth("/api/users/profile", {
           cache: "no-store",
         });
@@ -49,11 +45,9 @@ export default function ChatRoomPage() {
         const userData = await profileRes.json();
         setCurrentUserId(userData.id);
 
-        // 2. Get Receiver's Public Profile (hits User Service GET /:id)
         const receiverRes = await fetchWithAuth(`/api/users/${receiverId}`);
         if (receiverRes.ok) {
           const receiverData = await receiverRes.json();
-          // Assuming your user model returns 'name'
           setReceiverName(receiverData.name || "Unknown User");
         } else {
           setReceiverName("Unknown User");
@@ -91,9 +85,10 @@ export default function ChatRoomPage() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-white shadow-inner relative">
-      {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-200 bg-white flex justify-between items-center z-10 sticky top-0">
+    // STRICT FLEXBOX: h-full, flex-col, overflow-hidden ensures it fits EXACTLY in the parent container
+    <div className="flex flex-col h-full bg-white relative overflow-hidden">
+      {/* Header - shrink-0 prevents it from squishing */}
+      <div className="shrink-0 px-6 py-4 border-b border-gray-200 bg-white flex justify-between items-center z-10">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-blue-600 text-white flex items-center justify-center font-bold shadow-sm">
             {receiverName.charAt(0).toUpperCase()}
@@ -108,8 +103,8 @@ export default function ChatRoomPage() {
         </div>
       </div>
 
-      {/* Messages Feed */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/50">
+      {/* Messages Feed - min-h-0 is CRITICAL here so it scrolls instead of pushing the input field off screen */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/50 min-h-0">
         {messages.length === 0 ? (
           <div className="h-full flex items-center justify-center text-gray-400 text-sm">
             No messages yet. Start the conversation!
@@ -145,12 +140,12 @@ export default function ChatRoomPage() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Message Input Form */}
+      {/* Message Input Form - shrink-0 absolutely pins this to the bottom */}
       <form
         onSubmit={handleSend}
-        className="p-4 bg-white border-t border-gray-200"
+        className="shrink-0 p-4 bg-white border-t border-gray-200 w-full"
       >
-        <div className="flex gap-3 max-w-4xl mx-auto">
+        <div className="flex gap-3 max-w-4xl mx-auto w-full">
           <input
             type="text"
             value={inputValue}
@@ -158,13 +153,14 @@ export default function ChatRoomPage() {
             placeholder={
               isConnected ? "Type your message..." : "Waiting for connection..."
             }
-            className="flex-1 px-5 py-3 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-gray-50 text-gray-900 placeholder-gray-400"
+            className="flex-1 min-w-0 px-5 py-3 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-gray-50 text-gray-900 placeholder-gray-400"
             disabled={!isConnected}
+            autoFocus
           />
           <button
             type="submit"
             disabled={!inputValue.trim() || !isConnected}
-            className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-full hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+            className="shrink-0 px-6 py-3 bg-blue-600 text-white font-semibold rounded-full hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
           >
             Send
           </button>

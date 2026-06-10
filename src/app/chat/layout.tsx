@@ -1,4 +1,3 @@
-// src/app/chat/layout.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -7,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { fetchWithAuth } from "../../../lib/api";
 import { getChatContacts } from "@/services/chat";
 import { ChatContact } from "@/types/chat";
-import Navbar from "../components/Navbar";
+import NewChatModal from "@/components/NewChatModal"; // <-- IMPORT THE MODAL
 
 export default function ChatLayout({
   children,
@@ -19,11 +18,11 @@ export default function ChatLayout({
 
   const [contacts, setContacts] = useState<ChatContact[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false); // <-- MODAL STATE
 
   useEffect(() => {
     const loadSidebar = async () => {
       try {
-        // 1. Get Logged In User
         const profileRes = await fetchWithAuth("/api/users/profile");
         if (profileRes.status === 401) {
           router.replace("/login");
@@ -32,8 +31,6 @@ export default function ChatLayout({
         if (!profileRes.ok) throw new Error("Failed to load profile");
 
         const userData = await profileRes.json();
-
-        // 2. Fetch their chat contacts using the new Chat Service endpoint
         const recentContacts = await getChatContacts(userData.id);
         setContacts(recentContacts);
       } catch (error) {
@@ -48,13 +45,31 @@ export default function ChatLayout({
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
-      <Navbar />
-
-      <div className="flex flex-1 overflow-hidden pt-16">
+      <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <aside className="w-full md:w-1/3 lg:w-1/4 max-w-sm bg-white border-r border-gray-200 flex flex-col hidden md:flex">
-          <div className="p-4 border-b border-gray-100 bg-gray-50">
+          {/* Sidebar Header with New Chat Button */}
+          <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
             <h2 className="text-xl font-bold text-gray-800">Messages</h2>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="p-2 bg-blue-100 text-blue-600 rounded-full hover:bg-blue-200 transition-colors"
+              title="New Chat"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+            </button>
           </div>
 
           <ul className="flex-1 overflow-y-auto divide-y divide-gray-100">
@@ -64,7 +79,7 @@ export default function ChatLayout({
               </div>
             ) : contacts.length === 0 ? (
               <div className="p-8 text-center text-gray-500 text-sm">
-                No recent conversations.
+                No recent conversations. Click the + icon to start one!
               </div>
             ) : (
               contacts.map((contact) => {
@@ -103,6 +118,12 @@ export default function ChatLayout({
           {children}
         </main>
       </div>
+
+      {/* Render the Modal */}
+      <NewChatModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
     </div>
   );
 }
