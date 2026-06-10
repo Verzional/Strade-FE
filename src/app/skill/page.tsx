@@ -32,14 +32,18 @@ export default function SkillMatchingPage() {
 
   // 1. Fetch the list of all skills from /api/skills on mount
   useEffect(() => {
+    const token = localStorage.getItem('strade_token');
+  if (!token) {
+    window.location.href = '/login';
+    return;
+  }
     const loadSkills = async () => {
       try {
         const response = await fetchWithAuth('/api/skills');
         if (response.status === 401) {
-          localStorage.removeItem('strade_token');
-          router.push('/login');
-          return;
+          throw new Error('Unauthorized');
         }
+
         if (!response.ok) {
           throw new Error('SkillService is unreachable');
         }
@@ -50,7 +54,12 @@ export default function SkillMatchingPage() {
         }
       } catch (err: any) {
         console.warn('SkillService load error:', err.message);
-        setSkillServiceError('Skill Service is currently unavailable.');
+        if (err.message === 'Unauthorized') {
+          localStorage.removeItem('strade_token');
+          router.replace('/login');
+        } else {
+          setSkillServiceError('Skill Service is currently unavailable.');
+        }
       } finally {
         setIsLoadingSkills(false);
       }
@@ -73,6 +82,8 @@ export default function SkillMatchingPage() {
       const matchResponse = await fetchWithAuth(
         `/api/skills/match?skill_id=${selectedSkillId}&intent=${intent}`
       );
+
+      
       
       if (!matchResponse.ok) {
         throw new Error('SkillService matching failed');

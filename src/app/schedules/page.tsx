@@ -29,10 +29,8 @@ export default function AllSchedulesPage() {
         // 1. Fetch the raw schedules
         const response = await fetchWithAuth('/api/schedules');
         
-        if (response.status === 401) {
-          localStorage.removeItem('strade_token');
-          router.replace('/login');
-          return;
+         if (response.status === 401) {
+          throw new Error('Unauthorized');
         }
 
         if (response.status === 503) {
@@ -86,7 +84,13 @@ export default function AllSchedulesPage() {
         setSchedules(scheduleData);
 
       } catch (err: any) {
-        setGeneralError('Could not connect to the server. Please try again later.');
+                console.error(err);
+        if (err.message === 'Unauthorized') {
+          localStorage.removeItem('strade_token');
+          router.replace('/login');
+        } else {
+          setGeneralError('Could not connect to the server. Please try again later.');
+        }
       } finally {
         setLoading(false);
       }
